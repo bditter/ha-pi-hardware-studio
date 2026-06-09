@@ -72,8 +72,8 @@ Home Assistant packaging follows the official
 [MIT](LICENSE)
 
 [badge_home_assistant]: https://img.shields.io/badge/Home%20Assistant-App-blue.svg?style=for-the-badge&logo=homeassistant&logoColor=white
-[badge_release]: https://img.shields.io/github/v/release/ComputerWhisperers/ha-pi-hardware-studio?display_name=release&style=for-the-badge&cacheSeconds=3600
-[badge_license]: https://img.shields.io/github/license/ComputerWhisperers/ha-pi-hardware-studio?style=for-the-badge
+[badge_release]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FComputerWhisperers%2Fha-pi-hardware-studio%2Frefs%2Fheads%2Fmain%2Fpi_hardware_studio%2Fconfig.yaml&query=%24.version&style=for-the-badge&label=release
+[badge_license]: https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge
 [license_link]: LICENSE
 [release_link]: https://github.com/ComputerWhisperers/ha-pi-hardware-studio/releases/latest
 [repository_link]: https://github.com/ComputerWhisperers/ha-pi-hardware-studio
