@@ -34,6 +34,38 @@ class FanCurveTests(unittest.TestCase):
         with self.assertRaises(server.AppError):
             server.validate_curve(curve)
 
+    def test_generates_copy_ready_sensor_yaml(self):
+        rpm_path = "/sys/devices/platform/cooling_fan/hwmon/hwmon2/fan1_input"
+        pwm_path = "/sys/devices/platform/cooling_fan/hwmon/hwmon2/pwm1"
+        yaml = server.generate_fan_sensor_yaml(rpm_path, pwm_path)
+        self.assertIn(f"command: 'cat {rpm_path}'", yaml)
+        self.assertIn(f"command: 'cat {pwm_path}'", yaml)
+        self.assertIn('unique_id: "pi5fan_rpm"', yaml)
+        self.assertIn('unique_id: "pi5fan_percentage"', yaml)
+        self.assertIn("{{ value | int }}", yaml)
+        self.assertIn("{{ ((value | int) / 255 * 100) | round(0, 'common') }}", yaml)
+
+    def test_detected_fan_paths_are_inserted_into_yaml(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hwmon = Path(directory) / "hwmon7"
+            hwmon.mkdir()
+            (hwmon / "fan1_input").write_text("3210\n", encoding="utf-8")
+            (hwmon / "pwm1").write_text("128\n", encoding="utf-8")
+
+            telemetry = server.read_fan_telemetry(Path(directory))
+
+            self.assertTrue(telemetry["detected"])
+            self.assertEqual(telemetry["rpm"], 3210)
+            self.assertEqual(telemetry["speed_pct"], 50)
+            self.assertIn(
+                f"command: 'cat {hwmon / 'fan1_input'}'",
+                telemetry["sensor_yaml"],
+            )
+            self.assertIn(
+                f"command: 'cat {hwmon / 'pwm1'}'",
+                telemetry["sensor_yaml"],
+            )
+
 
 class ConfigParsingTests(unittest.TestCase):
     def test_parses_managed_block(self):

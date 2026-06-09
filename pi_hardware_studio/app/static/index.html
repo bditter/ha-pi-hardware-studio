@@ -83,6 +83,16 @@
           <div class="telemetry" id="fanTelemetry">Fan telemetry unavailable</div>
           <div class="curve" id="curve"></div>
           <p class="hint">Temperatures must rise from top to bottom. Speed may stay level or rise.</p>
+          <div class="sensor-config" id="fanSensorConfig" hidden>
+            <div class="section-heading">
+              <div>
+                <strong>Home Assistant sensors</strong>
+                <small>Copy into <code>configuration.yaml</code>, then restart Home Assistant.</small>
+              </div>
+              <button type="button" id="copyFanYamlButton">Copy YAML</button>
+            </div>
+            <textarea id="fanSensorYaml" rows="18" readonly spellcheck="false"></textarea>
+          </div>
         </section>
 
         <section class="card">

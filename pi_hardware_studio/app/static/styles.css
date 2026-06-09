@@ -169,6 +169,18 @@ small, .hint { color: var(--muted); }
   color: var(--accent-dark);
 }
 .unit-switch { display: flex; align-items: center; gap: 0.35rem; font-weight: 800; }
+.sensor-config {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.sensor-config .section-heading { align-items: end; margin-bottom: 0.7rem; }
+.sensor-config .section-heading > div { display: grid; gap: 0.25rem; }
+.sensor-config textarea {
+  min-height: 19rem;
+  resize: vertical;
+  font: 0.78rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
 .curve { display: grid; gap: 0.65rem; }
 .curve-row {
   display: grid;

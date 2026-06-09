@@ -105,6 +105,15 @@ function markDirty() {
   }
 }
 
+function updateFanDisplay(fan) {
+  $("#fanTelemetry").textContent = fan.detected
+    ? `${fan.rpm.toLocaleString()} RPM${fan.speed_pct === null ? "" : ` · ${fan.speed_pct}% PWM`}`
+    : "Fan telemetry unavailable until the driver is active";
+  const yamlAvailable = mounted && Boolean(fan.sensor_yaml);
+  $("#fanSensorConfig").hidden = !yamlAvailable;
+  $("#fanSensorYaml").value = yamlAvailable ? fan.sensor_yaml : "";
+}
+
 function setMountedState(value, target = null) {
   mounted = value;
   $("#mountStatus").textContent = value ? "Boot mounted" : "Not mounted";
@@ -130,10 +139,7 @@ function applyStatus(data) {
   $("#fanEnabled").checked = data.mounted && settings.fan_enabled;
   $("#unitToggle").checked = settings.temperature_unit === "F";
   renderCurve(settings.fan_curve);
-  const fan = data.fan;
-  $("#fanTelemetry").textContent = fan.detected
-    ? `${fan.rpm.toLocaleString()} RPM${fan.speed_pct === null ? "" : ` · ${fan.speed_pct}% PWM`}`
-    : "Fan telemetry unavailable until the driver is active";
+  updateFanDisplay(data.fan);
   $("#dirtyBadge").hidden = true;
   loading = false;
 }
@@ -165,6 +171,19 @@ $("#unitToggle").addEventListener("change", () => {
   const canonical = readCurve();
   renderCurve(canonical);
   markDirty();
+});
+
+$("#copyFanYamlButton").addEventListener("click", async () => {
+  const yaml = $("#fanSensorYaml").value;
+  if (!yaml) return;
+  try {
+    await navigator.clipboard.writeText(yaml);
+    toast("Fan sensor YAML copied.");
+  } catch {
+    $("#fanSensorYaml").select();
+    document.execCommand("copy");
+    toast("Fan sensor YAML copied.");
+  }
 });
 
 $("#saveButton").addEventListener("click", async () => {
@@ -244,10 +263,7 @@ setInterval(async () => {
   if (!mounted || document.hidden) return;
   try {
     const data = await request("status");
-    const fan = data.fan;
-    $("#fanTelemetry").textContent = fan.detected
-      ? `${fan.rpm.toLocaleString()} RPM${fan.speed_pct === null ? "" : ` · ${fan.speed_pct}% PWM`}`
-      : "Fan telemetry unavailable until the driver is active";
+    updateFanDisplay(data.fan);
   } catch {
     // Keep the last telemetry value during a transient refresh failure.
   }

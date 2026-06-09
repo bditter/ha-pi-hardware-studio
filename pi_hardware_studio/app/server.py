@@ -26,6 +26,7 @@ APP_ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = APP_ROOT / "static"
 DATA_ROOT = Path("/data")
 MOUNT_ROOT = Path("/run/pi-hardware-studio")
+FAN_HWMON_ROOT = Path("/sys/devices/platform/cooling_fan/hwmon")
 SETTINGS_FILE = DATA_ROOT / "settings.json"
 MAX_BODY_BYTES = 256 * 1024
 MANAGED_BEGIN = "# BEGIN PI HARDWARE STUDIO"
@@ -343,8 +344,9 @@ def resolve_interface_status(
     return settings, runtime
 
 
-def read_fan_telemetry() -> dict[str, Any]:
-    for hwmon in Path("/sys/devices/platform/cooling_fan/hwmon").glob("hwmon*"):
+def read_fan_telemetry(root: Path | None = None) -> dict[str, Any]:
+    root = root or FAN_HWMON_ROOT
+    for hwmon in root.glob("hwmon*"):
         rpm_file = hwmon / "fan1_input"
         pwm_file = hwmon / "pwm1"
         if rpm_file.exists():
@@ -355,10 +357,49 @@ def read_fan_telemetry() -> dict[str, Any]:
                     "detected": True,
                     "rpm": rpm,
                     "speed_pct": round(pwm * 100 / 255) if pwm is not None else None,
+                    "rpm_path": str(rpm_file),
+                    "pwm_path": str(pwm_file) if pwm_file.exists() else None,
+                    "sensor_yaml": generate_fan_sensor_yaml(
+                        str(rpm_file),
+                        str(pwm_file),
+                    )
+                    if pwm_file.exists()
+                    else None,
                 }
             except (OSError, ValueError):
                 break
-    return {"detected": False, "rpm": None, "speed_pct": None}
+    return {
+        "detected": False,
+        "rpm": None,
+        "speed_pct": None,
+        "rpm_path": None,
+        "pwm_path": None,
+        "sensor_yaml": None,
+    }
+
+
+def generate_fan_sensor_yaml(rpm_path: str, pwm_path: str) -> str:
+    """Generate copy-ready Home Assistant command_line sensor configuration."""
+    return f"""command_line:
+  - sensor:
+      name: "Pi 5 Fan Speed (RPM)"
+      icon: "mdi:fan"
+      unique_id: "pi5fan_rpm"
+      command: 'cat {rpm_path}'
+      unit_of_measurement: "RPM"
+      scan_interval: 15
+      value_template: "{{{{ value | int }}}}"
+      state_class: "measurement"
+  - sensor:
+      name: "Pi 5 Fan Speed (%)"
+      icon: "mdi:fan"
+      unique_id: "pi5fan_percentage"
+      command: 'cat {pwm_path}'
+      unit_of_measurement: "%"
+      scan_interval: 15
+      value_template: "{{{{ ((value | int) / 255 * 100) | round(0, 'common') }}}}"
+      state_class: "measurement"
+"""
 
 
 def request_host_reboot() -> None:

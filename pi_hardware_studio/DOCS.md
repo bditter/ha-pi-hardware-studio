@@ -15,6 +15,11 @@ millidegrees Celsius. The C/F switch changes only how values are displayed and
 entered in the Web UI. Fan speed percentages are converted to firmware PWM
 values from 0 through 255.
 
+When the running kernel exposes the fan RPM and PWM files, Pi Hardware Studio
+generates two copy-ready Home Assistant `command_line` sensors with the detected
+paths already inserted. Copy the YAML into `configuration.yaml`, check the
+configuration, and restart Home Assistant.
+
 ## SSH
 
 Paste one complete public key line, such as an `ssh-ed25519` key. The key is

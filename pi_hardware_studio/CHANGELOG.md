@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+- Generate copy-ready Home Assistant `command_line` fan sensor YAML.
+- Insert the detected RPM and PWM sysfs paths automatically.
+- Add an in-app Copy YAML action when fan telemetry is available.
+
 ## 1.0.0
 
 - Initial stable release.
