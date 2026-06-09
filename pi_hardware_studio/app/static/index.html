@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Pi Hardware Studio</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">HOME ASSISTANT APP</p>
+        <h1>Pi Hardware Studio</h1>
+      </div>
+      <div class="status-pill" id="mountStatus">Not mounted</div>
+    </header>
+
+    <main>
+      <section class="hero card">
+        <div>
+          <p class="eyebrow">RASPBERRY PI HOST</p>
+          <h2>Hardware configuration, without the command-line scavenger hunt.</h2>
+          <p id="targetText">Mount the boot partition to read and change host settings.</p>
+        </div>
+        <button class="primary" id="mountButton">Mount boot partition</button>
+      </section>
+
+      <div class="grid">
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">INTERFACES</p>
+              <h2>Hardware buses</h2>
+            </div>
+            <span class="dirty" id="dirtyBadge" hidden>Unsaved</span>
+          </div>
+          <label class="toggle-row">
+            <span><strong>I2C</strong><small>Sensors, displays, and HAT devices</small></span>
+            <span class="switch">
+              <input type="checkbox" role="switch" id="i2c">
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="toggle-row">
+            <span><strong>SPI</strong><small>High-speed displays and peripherals</small></span>
+            <span class="switch">
+              <input type="checkbox" role="switch" id="spi">
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="toggle-row">
+            <span><strong>Primary UART</strong><small>3.3 V serial hardware on TX/RX</small></span>
+            <span class="switch">
+              <input type="checkbox" role="switch" id="serial">
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PI 5 COOLING</p>
+              <h2>Fan curve</h2>
+            </div>
+            <label class="unit-switch" title="Display unit">
+              <span>C</span>
+              <span class="switch switch-small">
+                <input type="checkbox" role="switch" id="unitToggle" aria-label="Display temperatures in Fahrenheit">
+                <span class="switch-track" aria-hidden="true"></span>
+              </span>
+              <span>F</span>
+            </label>
+          </div>
+          <label class="toggle-row compact">
+            <span><strong>Custom fan curve</strong><small>Four firmware thresholds</small></span>
+            <span class="switch">
+              <input type="checkbox" role="switch" id="fanEnabled">
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="telemetry" id="fanTelemetry">Fan telemetry unavailable</div>
+          <div class="curve" id="curve"></div>
+          <p class="hint">Temperatures must rise from top to bottom. Speed may stay level or rise.</p>
+        </section>
+
+        <section class="card">
+          <p class="eyebrow">HOST ACCESS</p>
+          <h2>SSH public key</h2>
+          <p>Add a public key for Home Assistant OS host access on port 22222.</p>
+          <textarea id="sshKey" rows="4" placeholder="ssh-ed25519 AAAA... name@example"></textarea>
+          <button id="sshButton">Install public key</button>
+        </section>
+
+        <section class="card">
+          <p class="eyebrow">ADVANCED</p>
+          <h2>Raw boot configuration</h2>
+          <p>Open the complete <code>config.txt</code>. A backup is created before saving.</p>
+          <button id="editorButton">Open editor</button>
+        </section>
+      </div>
+
+      <section class="actions card">
+        <div>
+          <strong>Changes require a host reboot.</strong>
+          <span>Apply the settings first, then reboot when you are ready.</span>
+        </div>
+        <div class="button-row">
+          <button id="rebootButton" class="danger">Reboot host</button>
+          <button id="saveButton" class="primary">Apply settings</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="editorDialog">
+      <form method="dialog" class="dialog-shell">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ADVANCED EDITOR</p>
+            <h2>config.txt</h2>
+          </div>
+          <button value="cancel" class="icon-button" aria-label="Close">Close</button>
+        </div>
+        <textarea id="configEditor" spellcheck="false"></textarea>
+        <div class="button-row">
+          <button value="cancel">Cancel</button>
+          <button type="button" class="primary" id="configSaveButton">Save with backup</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>
