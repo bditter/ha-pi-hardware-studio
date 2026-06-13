@@ -178,6 +178,56 @@ dtparam=spi=off
         )
 
 
+class CmdlineTests(unittest.TestCase):
+    def test_parses_last_psi_parameter(self):
+        content = "console=tty1 psi=0 rootwait psi=1"
+        self.assertEqual(server.parse_cmdline_parameter(content, "psi"), "1")
+
+    def test_adds_replaces_and_removes_psi_parameter(self):
+        original = "console=tty1 psi=0 rootwait"
+        enabled = server.update_cmdline_parameter(original, "psi", "1")
+        self.assertEqual(enabled, "console=tty1 rootwait psi=1")
+        self.assertEqual(
+            server.update_cmdline_parameter(enabled, "psi", None),
+            "console=tty1 rootwait",
+        )
+
+    def test_write_cmdline_creates_backup_and_keeps_one_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1 rootwait\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            backup = manager.write_cmdline("console=tty1 rootwait psi=1")
+
+            self.assertEqual(
+                cmdline_path.read_text(encoding="utf-8"),
+                "console=tty1 rootwait psi=1\n",
+            )
+            self.assertTrue((root / backup).is_file())
+
+    def test_write_cmdline_rejects_multiple_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1 rootwait\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            with self.assertRaises(server.AppError):
+                manager.write_cmdline("console=tty1\npsi=1")
+
+
 class ConfigWriteTests(unittest.TestCase):
     @staticmethod
     def apply(manager, root, payload):
@@ -316,6 +366,43 @@ class ConfigWriteTests(unittest.TestCase):
             self.assertIn("dtparam=fan_temp0=35000", updated)
             self.assertIn("dtparam=fan_temp3_speed=255", updated)
             self.assertTrue(server.parse_managed_settings(updated)["fan_enabled"])
+
+    def test_apply_settings_enables_psi_in_cmdline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("[all]\ndtparam=i2c_arm=on\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1 psi=0 rootwait\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            result = self.apply(
+                manager,
+                root,
+                {
+                    "i2c": True,
+                    "spi": False,
+                    "serial": False,
+                    "psi": True,
+                    "fan_enabled": False,
+                    "fan_curve": [
+                        {"temp_c": 35, "speed_pct": 30},
+                        {"temp_c": 50, "speed_pct": 50},
+                        {"temp_c": 60, "speed_pct": 70},
+                        {"temp_c": 65, "speed_pct": 100},
+                    ],
+                    "temperature_unit": "C",
+                },
+            )
+
+            self.assertEqual(
+                cmdline_path.read_text(encoding="utf-8"),
+                "console=tty1 rootwait psi=1\n",
+            )
+            self.assertTrue((root / result["cmdline_backup"]).is_file())
 
 
 if __name__ == "__main__":

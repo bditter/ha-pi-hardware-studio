@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const curveElement = $("#curve");
-const controls = ["#i2c", "#spi", "#serial", "#fanEnabled", "#unitToggle"];
+const controls = ["#i2c", "#spi", "#serial", "#fanEnabled", "#unitToggle", "#psi"];
 let mounted = false;
 let loading = false;
 let displayedUnit = "C";
@@ -136,6 +136,7 @@ function applyStatus(data) {
   $("#i2c").checked = data.mounted && settings.i2c;
   $("#spi").checked = data.mounted && settings.spi;
   $("#serial").checked = data.mounted && settings.serial;
+  $("#psi").checked = data.mounted && settings.psi;
   $("#fanEnabled").checked = data.mounted && settings.fan_enabled;
   $("#unitToggle").checked = settings.temperature_unit === "F";
   renderCurve(settings.fan_curve);
@@ -194,13 +195,17 @@ $("#saveButton").addEventListener("click", async () => {
         i2c: $("#i2c").checked,
         spi: $("#spi").checked,
         serial: $("#serial").checked,
+        psi: $("#psi").checked,
         fan_enabled: $("#fanEnabled").checked,
         fan_curve: readCurve(),
         temperature_unit: currentUnit(),
       }),
     });
     $("#dirtyBadge").hidden = true;
-    toast(`Settings applied. Backup created: ${data.backup}`);
+    const backups = data.cmdline_backup
+      ? `${data.backup}; ${data.cmdline_backup}`
+      : data.backup;
+    toast(`Settings applied. Backup created: ${backups}`);
   } catch (error) {
     toast(error.message, "error");
   }
@@ -240,6 +245,33 @@ $("#configSaveButton").addEventListener("click", async () => {
     });
     $("#editorDialog").close();
     toast(`Configuration saved. Backup created: ${data.backup}`);
+    await refresh();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+});
+
+$("#cmdlineEditorButton").addEventListener("click", async () => {
+  try {
+    const data = await request("cmdline");
+    $("#cmdlineEditor").value = data.content;
+    $("#cmdlineDialog").showModal();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+});
+
+$("#cmdlineSaveButton").addEventListener("click", async () => {
+  if (!confirm("Save cmdline.txt? Invalid kernel arguments can prevent the host from booting.")) {
+    return;
+  }
+  try {
+    const data = await request("cmdline", {
+      method: "PUT",
+      body: JSON.stringify({ content: $("#cmdlineEditor").value }),
+    });
+    $("#cmdlineDialog").close();
+    toast(`Kernel command line saved. Backup created: ${data.backup}`);
     await refresh();
   } catch (error) {
     toast(error.message, "error");

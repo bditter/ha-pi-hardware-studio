@@ -9,13 +9,14 @@
 Pi Hardware Studio is a Home Assistant app for configuring Raspberry Pi hardware
 features from one Ingress dashboard.
 
-## Planned first release
+## Features
 
 - Enable or disable I2C, SPI, and the primary UART.
+- Enable Linux Pressure Stall Information by adding `psi=1` to `cmdline.txt`.
 - Configure the Raspberry Pi 5 fan curve with four temperature/speed points.
 - Display and edit fan temperatures in Celsius or Fahrenheit.
 - Provision an SSH public key for Home Assistant OS host access on port 22222.
-- Inspect and carefully edit the boot `config.txt`.
+- Inspect and carefully edit the boot `config.txt` and `cmdline.txt`.
 - Create a timestamped backup before every boot configuration write.
 - Request a Home Assistant host reboot after configuration changes.
 - Display detected fan RPM and PWM percentage when the kernel exposes them.

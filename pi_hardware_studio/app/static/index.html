@@ -105,9 +105,22 @@
 
         <section class="card">
           <p class="eyebrow">ADVANCED</p>
-          <h2>Raw boot configuration</h2>
-          <p>Open the complete <code>config.txt</code>. A backup is created before saving.</p>
-          <button id="editorButton">Open editor</button>
+          <h2>Boot configuration</h2>
+          <label class="toggle-row">
+            <span>
+              <strong>Pressure Stall Information (PSI)</strong>
+              <small>Adds <code>psi=1</code> to the kernel command line</small>
+            </span>
+            <span class="switch">
+              <input type="checkbox" role="switch" id="psi">
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <p>Open either boot file directly. A timestamped backup is created before saving.</p>
+          <div class="button-row advanced-buttons">
+            <button id="editorButton">Edit config.txt</button>
+            <button id="cmdlineEditorButton">Edit cmdline.txt</button>
+          </div>
         </section>
       </div>
 
@@ -136,6 +149,26 @@
         <div class="button-row">
           <button value="cancel">Cancel</button>
           <button type="button" class="primary" id="configSaveButton">Save with backup</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="cmdlineDialog" class="compact-dialog">
+      <form method="dialog" class="dialog-shell">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ADVANCED EDITOR</p>
+            <h2>cmdline.txt</h2>
+          </div>
+          <button value="cancel" class="icon-button" aria-label="Close">Close</button>
+        </div>
+        <div>
+          <p class="warning-text"><strong>Keep this file on one line.</strong> Invalid kernel arguments can prevent the host from booting.</p>
+          <textarea id="cmdlineEditor" rows="6" wrap="off" spellcheck="false"></textarea>
+        </div>
+        <div class="button-row">
+          <button value="cancel">Cancel</button>
+          <button type="button" class="primary" id="cmdlineSaveButton">Save with backup</button>
         </div>
       </form>
     </dialog>

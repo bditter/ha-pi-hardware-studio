@@ -52,6 +52,11 @@ class MountedBoot:
     device: Path
     mountpoint: Path
     config_path: Path
+    cmdline_path: Path | None = None
+
+    @property
+    def kernel_cmdline_path(self) -> Path:
+        return self.cmdline_path or self.config_path.parent / "cmdline.txt"
 
 
 class BootManager:
@@ -95,9 +100,12 @@ class BootManager:
                     failures.append(f"{device}: {result.stderr.strip()}")
                     continue
 
-                config_path = self._find_config(mountpoint)
-                if config_path:
-                    self._mounted.append(MountedBoot(device, mountpoint, config_path))
+                boot_files = self._find_boot_files(mountpoint)
+                if boot_files:
+                    config_path, cmdline_path = boot_files
+                    self._mounted.append(
+                        MountedBoot(device, mountpoint, config_path, cmdline_path)
+                    )
                 else:
                     subprocess.run(["umount", str(mountpoint)], check=False)
 
@@ -116,15 +124,21 @@ class BootManager:
             self._mounted.clear()
 
     @staticmethod
-    def _find_config(mountpoint: Path) -> Path | None:
+    def _find_boot_files(mountpoint: Path) -> tuple[Path, Path] | None:
         for relative in ("config.txt", "boot/config.txt", "boot/firmware/config.txt"):
             candidate = mountpoint / relative
-            if candidate.is_file() and (candidate.parent / "cmdline.txt").is_file():
-                return candidate
+            cmdline = candidate.parent / "cmdline.txt"
+            if candidate.is_file() and cmdline.is_file():
+                return candidate, cmdline
         return None
 
     def read_config(self) -> str:
         return self.primary.config_path.read_text(encoding="utf-8", errors="replace")
+
+    def read_cmdline(self) -> str:
+        return self.primary.kernel_cmdline_path.read_text(
+            encoding="utf-8", errors="replace"
+        ).strip()
 
     def write_config(self, content: str) -> str:
         if "\x00" in content:
@@ -139,6 +153,28 @@ class BootManager:
 
         temporary = target.with_name(f".{target.name}.pi-hardware-studio.tmp")
         temporary.write_text(content, encoding="utf-8", newline="\n")
+        os.replace(temporary, target)
+        return backup.name
+
+    def write_cmdline(self, content: str) -> str:
+        if "\x00" in content:
+            raise AppError("The kernel command line contains an invalid NUL character.")
+        if "\n" in content or "\r" in content:
+            raise AppError("cmdline.txt must contain exactly one line.")
+
+        normalized = content.strip()
+        if not normalized:
+            raise AppError("cmdline.txt cannot be empty.")
+        if len(normalized.encode("utf-8")) > MAX_BODY_BYTES:
+            raise AppError("The kernel command line is too large.")
+
+        target = self.primary.kernel_cmdline_path
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = target.with_name(f"{target.name}.pi-hardware-studio-{stamp}.bak")
+        shutil.copy2(target, backup)
+
+        temporary = target.with_name(f".{target.name}.pi-hardware-studio.tmp")
+        temporary.write_text(normalized + "\n", encoding="utf-8", newline="\n")
         os.replace(temporary, target)
         return backup.name
 
@@ -173,8 +209,16 @@ class BootManager:
         updated = unmanaged.rstrip() + "\n\n" + block + "\n"
 
         backup = self.write_config(updated)
+        cmdline_backup = None
+        if "psi" in payload:
+            current_cmdline = self.read_cmdline()
+            updated_cmdline = update_cmdline_parameter(
+                current_cmdline, "psi", "1" if payload.get("psi") else None
+            )
+            if updated_cmdline != current_cmdline:
+                cmdline_backup = self.write_cmdline(updated_cmdline)
         save_preferences(payload.get("temperature_unit", "C"))
-        return {"backup": backup}
+        return {"backup": backup, "cmdline_backup": cmdline_backup}
 
     def provision_ssh_key(self, public_key: str) -> dict[str, Any]:
         key = public_key.strip()
@@ -320,6 +364,22 @@ def remove_active_fan_parameters(content: str) -> str:
     return pattern.sub("", content)
 
 
+def parse_cmdline_parameter(content: str, name: str) -> str | None:
+    prefix = f"{name}="
+    values = [token[len(prefix):] for token in content.split() if token.startswith(prefix)]
+    return values[-1] if values else None
+
+
+def update_cmdline_parameter(
+    content: str, name: str, value: str | None
+) -> str:
+    prefix = f"{name}="
+    tokens = [token for token in content.split() if not token.startswith(prefix)]
+    if value is not None:
+        tokens.append(f"{name}={value}")
+    return " ".join(tokens)
+
+
 def detect_runtime_interfaces() -> dict[str, bool]:
     """Detect interfaces that are active in the running kernel."""
     return {
@@ -432,6 +492,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._status()
         elif path.endswith("/api/config"):
             self._config()
+        elif path.endswith("/api/cmdline"):
+            self._cmdline()
         else:
             self._static(path)
 
@@ -468,6 +530,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 if not isinstance(content, str):
                     raise AppError("Missing configuration content.")
                 result = {"backup": BOOT.write_config(content)}
+            elif path.endswith("/api/cmdline"):
+                content = payload.get("content")
+                if not isinstance(content, str):
+                    raise AppError("Missing kernel command line content.")
+                result = {"backup": BOOT.write_cmdline(content)}
             elif path.endswith("/api/ssh"):
                 result = BOOT.provision_ssh_key(str(payload.get("public_key", "")))
             else:
@@ -490,10 +557,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             runtime_interfaces,
         )
         settings.update(load_preferences())
+        settings["psi"] = (
+            parse_cmdline_parameter(BOOT.read_cmdline(), "psi") == "1"
+            if mounted
+            else False
+        )
         self._json(
             {
                 "mounted": mounted,
                 "target": str(BOOT.primary.config_path) if mounted else None,
+                "cmdline_target": (
+                    str(BOOT.primary.kernel_cmdline_path) if mounted else None
+                ),
                 "settings": settings,
                 "runtime_interfaces": runtime_interfaces,
                 "fan": read_fan_telemetry(),
@@ -503,6 +578,12 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _config(self) -> None:
         try:
             self._json({"content": BOOT.read_config()})
+        except AppError as error:
+            self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+
+    def _cmdline(self) -> None:
+        try:
+            self._json({"content": BOOT.read_cmdline()})
         except AppError as error:
             self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
 

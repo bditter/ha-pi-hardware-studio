@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- Add a structured Pressure Stall Information toggle that manages `psi=1`.
+- Add a guarded raw `cmdline.txt` editor.
+- Create timestamped `cmdline.txt` backups before changes.
+- Preserve unrelated kernel command-line arguments and enforce the required single-line format.
+
 ## 1.0.1
 
 - Generate copy-ready Home Assistant `command_line` fan sensor YAML.

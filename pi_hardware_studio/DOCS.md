@@ -4,9 +4,19 @@ Open the Web UI, mount the detected boot partition, review the current state,
 and apply only the settings you need.
 
 All boot configuration writes create a timestamped sibling backup of
-`config.txt`. Most changes require a full host reboot. Some Home Assistant OS
-and Raspberry Pi firmware combinations can require a second full reboot before
-new device nodes appear.
+the file being changed. Most changes require a full host reboot. Some Home
+Assistant OS and Raspberry Pi firmware combinations can require a second full
+reboot before new device nodes appear.
+
+## Kernel command line
+
+Enable **Pressure Stall Information (PSI)** and apply settings to add `psi=1`
+to `cmdline.txt`. Disabling the switch removes an existing `psi=` argument and
+returns control to the operating system default.
+
+The advanced editor can modify the complete `cmdline.txt`. The kernel command
+line must remain a single non-empty line. Pi Hardware Studio rejects multiline
+content and creates a timestamped backup before saving.
 
 ## Fan curve
 
@@ -28,5 +38,5 @@ present. Private keys are rejected.
 
 ## Warning
 
-Raw `config.txt` editing can prevent the host from booting. Use the structured
-controls when possible and keep a current Home Assistant backup.
+Raw `config.txt` or `cmdline.txt` editing can prevent the host from booting. Use
+the structured controls when possible and keep a current Home Assistant backup.

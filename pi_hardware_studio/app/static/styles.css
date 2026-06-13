@@ -224,6 +224,16 @@ dialog {
 dialog::backdrop { background: rgba(7, 25, 30, 0.72); }
 .dialog-shell { display: grid; grid-template-rows: auto 1fr auto; gap: 1rem; height: 100%; padding: 1.2rem; }
 #configEditor { min-height: 0; resize: none; font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.compact-dialog { height: min(430px, calc(100vh - 2rem)); }
+#cmdlineEditor {
+  min-height: 8rem;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+  font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.warning-text { margin-top: 0; }
+.advanced-buttons { justify-content: flex-start; flex-wrap: wrap; }
 .toast {
   position: fixed;
   right: 1rem;
