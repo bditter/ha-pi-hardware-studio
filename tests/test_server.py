@@ -38,14 +38,23 @@ class FanCurveTests(unittest.TestCase):
         rpm_path = "/sys/devices/platform/cooling_fan/hwmon/hwmon2/fan1_input"
         pwm_path = "/sys/devices/platform/cooling_fan/hwmon/hwmon2/pwm1"
         yaml = server.generate_fan_sensor_yaml(rpm_path, pwm_path)
-        self.assertIn(f"command: 'cat {rpm_path}'", yaml)
-        self.assertIn(f"command: 'cat {pwm_path}'", yaml)
+        self.assertIn(
+            "command: 'cat /sys/devices/platform/cooling_fan/hwmon/"
+            "hwmon*/fan1_input 2>/dev/null | head -n 1'",
+            yaml,
+        )
+        self.assertIn(
+            "command: 'cat /sys/devices/platform/cooling_fan/hwmon/"
+            "hwmon*/pwm1 2>/dev/null | head -n 1'",
+            yaml,
+        )
+        self.assertNotIn("hwmon2", yaml)
         self.assertIn('unique_id: "pi5fan_rpm"', yaml)
         self.assertIn('unique_id: "pi5fan_percentage"', yaml)
         self.assertIn("{{ value | int }}", yaml)
         self.assertIn("{{ ((value | int) / 255 * 100) | round(0, 'common') }}", yaml)
 
-    def test_detected_fan_paths_are_inserted_into_yaml(self):
+    def test_detected_fan_paths_are_made_stable_in_yaml(self):
         with tempfile.TemporaryDirectory() as directory:
             hwmon = Path(directory) / "hwmon7"
             hwmon.mkdir()
@@ -58,11 +67,13 @@ class FanCurveTests(unittest.TestCase):
             self.assertEqual(telemetry["rpm"], 3210)
             self.assertEqual(telemetry["speed_pct"], 50)
             self.assertIn(
-                f"command: 'cat {hwmon / 'fan1_input'}'",
+                f"command: 'cat {Path(directory) / 'hwmon*' / 'fan1_input'} "
+                "2>/dev/null | head -n 1'",
                 telemetry["sensor_yaml"],
             )
             self.assertIn(
-                f"command: 'cat {hwmon / 'pwm1'}'",
+                f"command: 'cat {Path(directory) / 'hwmon*' / 'pwm1'} "
+                "2>/dev/null | head -n 1'",
                 telemetry["sensor_yaml"],
             )
 

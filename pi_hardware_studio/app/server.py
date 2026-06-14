@@ -438,13 +438,15 @@ def read_fan_telemetry(root: Path | None = None) -> dict[str, Any]:
 
 
 def generate_fan_sensor_yaml(rpm_path: str, pwm_path: str) -> str:
-    """Generate copy-ready Home Assistant command_line sensor configuration."""
+    """Generate sensors that survive Linux hwmon directory renumbering."""
+    rpm_glob = re.sub(r"(?<=[/\\])hwmon\d+(?=[/\\])", "hwmon*", rpm_path)
+    pwm_glob = re.sub(r"(?<=[/\\])hwmon\d+(?=[/\\])", "hwmon*", pwm_path)
     return f"""command_line:
   - sensor:
       name: "Pi 5 Fan Speed (RPM)"
       icon: "mdi:fan"
       unique_id: "pi5fan_rpm"
-      command: 'cat {rpm_path}'
+      command: 'cat {rpm_glob} 2>/dev/null | head -n 1'
       unit_of_measurement: "RPM"
       scan_interval: 15
       value_template: "{{{{ value | int }}}}"
@@ -453,7 +455,7 @@ def generate_fan_sensor_yaml(rpm_path: str, pwm_path: str) -> str:
       name: "Pi 5 Fan Speed (%)"
       icon: "mdi:fan"
       unique_id: "pi5fan_percentage"
-      command: 'cat {pwm_path}'
+      command: 'cat {pwm_glob} 2>/dev/null | head -n 1'
       unit_of_measurement: "%"
       scan_interval: 15
       value_template: "{{{{ ((value | int) / 255 * 100) | round(0, 'common') }}}}"

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4
+
+- Generate fan sensor commands with a stable `hwmon*` path.
+- Prevent fan sensors from becoming unavailable when Linux renumbers `hwmonN` after a reboot.
+
 ## 1.0.3
 
 - Stop writing explicit fan hysteresis values when they are not configured in the UI.

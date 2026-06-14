@@ -26,9 +26,10 @@ entered in the Web UI. Fan speed percentages are converted to firmware PWM
 values from 0 through 255.
 
 When the running kernel exposes the fan RPM and PWM files, Pi Hardware Studio
-generates two copy-ready Home Assistant `command_line` sensors with the detected
-paths already inserted. Copy the YAML into `configuration.yaml`, check the
-configuration, and restart Home Assistant.
+generates two copy-ready Home Assistant `command_line` sensors. The commands use
+a stable `hwmon*` path because Linux can change the numbered `hwmonN` directory
+after a reboot. Copy the YAML into `configuration.yaml`, check the configuration,
+and restart Home Assistant.
 
 ## SSH
 
