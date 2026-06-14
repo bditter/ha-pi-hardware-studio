@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- Stop writing explicit fan hysteresis values when they are not configured in the UI.
+- Continue removing legacy and previously generated `fan_temp*_hyst` directives when applying a fan curve.
+
 ## 1.0.2
 
 - Add a structured Pressure Stall Information toggle that manages `psi=1`.

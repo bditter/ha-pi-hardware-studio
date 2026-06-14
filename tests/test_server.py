@@ -271,6 +271,7 @@ class ConfigWriteTests(unittest.TestCase):
             updated = config_path.read_text(encoding="utf-8")
             self.assertIn(server.MANAGED_BEGIN, updated)
             self.assertIn("dtparam=fan_temp3_speed=255", updated)
+            self.assertNotIn("_hyst=", updated)
             self.assertTrue((root / result["backup"]).is_file())
 
     def test_apply_settings_replaces_existing_fan_directives(self):
@@ -305,6 +306,7 @@ class ConfigWriteTests(unittest.TestCase):
             self.assertEqual(updated.count("dtparam=fan_temp0="), 1)
             self.assertIn("dtparam=fan_temp0=40000", updated)
             self.assertNotIn("dtparam=fan_temp0=35000", updated)
+            self.assertNotIn("_hyst=", updated)
 
     def test_disabled_fan_curve_writes_no_fan_directives(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -193,7 +193,6 @@ class BootManager:
                 lines.extend(
                     (
                         f"dtparam=fan_temp{index}={round(point['temp_c'] * 1000)}",
-                        f"dtparam=fan_temp{index}_hyst=5000",
                         f"dtparam=fan_temp{index}_speed={pwm}",
                     )
                 )
