@@ -120,6 +120,7 @@
           <div class="button-row advanced-buttons">
             <button id="editorButton">Edit config.txt</button>
             <button id="cmdlineEditorButton">Edit cmdline.txt</button>
+            <button id="backupManagerButton">Manage backups</button>
           </div>
         </section>
       </div>
@@ -169,6 +170,23 @@
         <div class="button-row">
           <button value="cancel">Cancel</button>
           <button type="button" class="primary" id="cmdlineSaveButton">Save with backup</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="backupDialog">
+      <form method="dialog" class="dialog-shell">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">BOOT SAFETY</p>
+            <h2>Backup manager</h2>
+          </div>
+          <button value="cancel" class="icon-button" aria-label="Close">Close</button>
+        </div>
+        <div class="backup-list" id="backupList"></div>
+        <div class="button-row">
+          <button value="cancel">Close</button>
+          <button type="button" class="danger" id="deleteBackupsButton">Delete selected</button>
         </div>
       </form>
     </dialog>

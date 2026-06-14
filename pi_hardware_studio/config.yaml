@@ -1,5 +1,5 @@
 name: Pi Hardware Studio
-version: "1.0.4"
+version: "1.0.5"
 slug: pi_hardware_studio
 description: Configure Raspberry Pi interfaces, host SSH, and Pi 5 fan behavior.
 url: https://github.com/ComputerWhisperers/ha-pi-hardware-studio

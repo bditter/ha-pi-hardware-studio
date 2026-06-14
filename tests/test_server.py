@@ -238,6 +238,74 @@ class CmdlineTests(unittest.TestCase):
             with self.assertRaises(server.AppError):
                 manager.write_cmdline("console=tty1\npsi=1")
 
+    def test_unchanged_cmdline_creates_no_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1 rootwait\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            self.assertIsNone(manager.write_cmdline("console=tty1 rootwait"))
+            self.assertEqual(list(root.glob("*.bak")), [])
+
+
+class BackupTests(unittest.TestCase):
+    def test_lists_and_deletes_only_studio_backups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1\n", encoding="utf-8")
+            config_backup = root / (
+                "config.txt.pi-hardware-studio-20260613T123456123456Z.bak"
+            )
+            cmdline_backup = root / (
+                "cmdline.txt.pi-hardware-studio-20260613T123457123456Z.bak"
+            )
+            unrelated = root / "config.txt.other-tool.bak"
+            config_backup.write_text("# backup\n", encoding="utf-8")
+            cmdline_backup.write_text("console=tty1\n", encoding="utf-8")
+            unrelated.write_text("keep\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            backups = manager.list_backups()
+
+            self.assertEqual(
+                {backup["name"] for backup in backups},
+                {config_backup.name, cmdline_backup.name},
+            )
+            deleted = manager.delete_backups([config_backup.name])
+            self.assertEqual(deleted, [config_backup.name])
+            self.assertFalse(config_backup.exists())
+            self.assertTrue(cmdline_backup.exists())
+            self.assertTrue(unrelated.exists())
+
+    def test_rejects_paths_and_non_studio_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            cmdline_path = root / "cmdline.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            cmdline_path.write_text("console=tty1\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path, cmdline_path)
+            ]
+
+            with self.assertRaises(server.AppError):
+                manager.delete_backups(["../config.txt"])
+            with self.assertRaises(server.AppError):
+                manager.delete_backups(["config.txt.other-tool.bak"])
+
 
 class ConfigWriteTests(unittest.TestCase):
     @staticmethod
@@ -284,6 +352,36 @@ class ConfigWriteTests(unittest.TestCase):
             self.assertIn("dtparam=fan_temp3_speed=255", updated)
             self.assertNotIn("_hyst=", updated)
             self.assertTrue((root / result["backup"]).is_file())
+
+    def test_unchanged_config_creates_no_additional_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.txt"
+            config_path.write_text("# original\n", encoding="utf-8")
+            manager = server.BootManager()
+            manager._mounted = [
+                server.MountedBoot(root / "device", root, config_path)
+            ]
+            payload = {
+                "i2c": True,
+                "spi": False,
+                "serial": True,
+                "fan_enabled": False,
+                "fan_curve": [
+                    {"temp_c": 35, "speed_pct": 30},
+                    {"temp_c": 50, "speed_pct": 50},
+                    {"temp_c": 60, "speed_pct": 70},
+                    {"temp_c": 65, "speed_pct": 100},
+                ],
+                "temperature_unit": "C",
+            }
+
+            first = self.apply(manager, root, payload)
+            second = self.apply(manager, root, payload)
+
+            self.assertIsNotNone(first["backup"])
+            self.assertIsNone(second["backup"])
+            self.assertEqual(len(list(root.glob("config.txt.*.bak"))), 1)
 
     def test_apply_settings_replaces_existing_fan_directives(self):
         with tempfile.TemporaryDirectory() as directory:

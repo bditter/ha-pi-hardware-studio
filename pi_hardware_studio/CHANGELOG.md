@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.5
+
+- Add a backup manager for reviewing and deleting selected Studio backups.
+- Restrict deletion to timestamped backups created by Pi Hardware Studio.
+- Avoid creating backups when a save does not change `config.txt` or `cmdline.txt`.
+- Complete a behavior audit against Pi5FanEnabler while retaining the working fan configuration and stable sensor paths.
+
 ## 1.0.4
 
 - Generate fan sensor commands with a stable `hwmon*` path.

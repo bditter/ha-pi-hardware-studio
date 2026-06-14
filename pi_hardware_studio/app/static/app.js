@@ -39,6 +39,55 @@ function toast(message, kind = "success") {
   }, 5000);
 }
 
+function backupMessage(data, savedLabel) {
+  const names = [data.backup, data.cmdline_backup].filter(Boolean);
+  return names.length ? `${savedLabel} Backup created: ${names.join("; ")}` : "No changes to save.";
+}
+
+function formatBytes(value) {
+  if (value < 1024) return `${value} B`;
+  return `${(value / 1024).toFixed(1)} KB`;
+}
+
+function renderBackups(backups) {
+  const list = $("#backupList");
+  list.replaceChildren();
+  if (!backups.length) {
+    const empty = document.createElement("p");
+    empty.className = "backup-empty";
+    empty.textContent = "No Pi Hardware Studio backups found.";
+    list.appendChild(empty);
+    $("#deleteBackupsButton").disabled = true;
+    return;
+  }
+
+  backups.forEach((backup) => {
+    const label = document.createElement("label");
+    label.className = "backup-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = backup.name;
+    checkbox.addEventListener("change", updateDeleteBackupsButton);
+    const details = document.createElement("span");
+    details.className = "backup-details";
+    const name = document.createElement("strong");
+    name.textContent = backup.name;
+    const metadata = document.createElement("small");
+    metadata.textContent = `${backup.source} · ${new Date(backup.modified).toLocaleString()}`;
+    details.append(name, metadata);
+    const size = document.createElement("span");
+    size.className = "backup-size";
+    size.textContent = formatBytes(backup.size);
+    label.append(checkbox, details, size);
+    list.appendChild(label);
+  });
+  updateDeleteBackupsButton();
+}
+
+function updateDeleteBackupsButton() {
+  $("#deleteBackupsButton").disabled = !document.querySelector("#backupList input:checked");
+}
+
 function cToF(value) {
   return value * 9 / 5 + 32;
 }
@@ -202,10 +251,7 @@ $("#saveButton").addEventListener("click", async () => {
       }),
     });
     $("#dirtyBadge").hidden = true;
-    const backups = data.cmdline_backup
-      ? `${data.backup}; ${data.cmdline_backup}`
-      : data.backup;
-    toast(`Settings applied. Backup created: ${backups}`);
+    toast(backupMessage(data, "Settings applied."));
   } catch (error) {
     toast(error.message, "error");
   }
@@ -244,7 +290,7 @@ $("#configSaveButton").addEventListener("click", async () => {
       body: JSON.stringify({ content: $("#configEditor").value }),
     });
     $("#editorDialog").close();
-    toast(`Configuration saved. Backup created: ${data.backup}`);
+    toast(backupMessage(data, "Configuration saved."));
     await refresh();
   } catch (error) {
     toast(error.message, "error");
@@ -271,8 +317,37 @@ $("#cmdlineSaveButton").addEventListener("click", async () => {
       body: JSON.stringify({ content: $("#cmdlineEditor").value }),
     });
     $("#cmdlineDialog").close();
-    toast(`Kernel command line saved. Backup created: ${data.backup}`);
+    toast(backupMessage(data, "Kernel command line saved."));
     await refresh();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+});
+
+$("#backupManagerButton").addEventListener("click", async () => {
+  try {
+    const data = await request("backups");
+    renderBackups(data.backups);
+    $("#backupDialog").showModal();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+});
+
+$("#deleteBackupsButton").addEventListener("click", async () => {
+  const names = [...document.querySelectorAll("#backupList input:checked")]
+    .map((input) => input.value);
+  if (!names.length) return;
+  if (!confirm(`Permanently delete ${names.length} selected backup${names.length === 1 ? "" : "s"}?`)) {
+    return;
+  }
+  try {
+    const data = await request("backups", {
+      method: "DELETE",
+      body: JSON.stringify({ names }),
+    });
+    renderBackups((await request("backups")).backups);
+    toast(`Deleted ${data.deleted.length} backup${data.deleted.length === 1 ? "" : "s"}.`);
   } catch (error) {
     toast(error.message, "error");
   }

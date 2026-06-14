@@ -31,6 +31,7 @@ SETTINGS_FILE = DATA_ROOT / "settings.json"
 MAX_BODY_BYTES = 256 * 1024
 MANAGED_BEGIN = "# BEGIN PI HARDWARE STUDIO"
 MANAGED_END = "# END PI HARDWARE STUDIO"
+BACKUP_STAMP_PATTERN = r"\d{8}T\d{12}Z"
 PARTITIONS = (
     "vda1",
     "sda1",
@@ -140,13 +141,15 @@ class BootManager:
             encoding="utf-8", errors="replace"
         ).strip()
 
-    def write_config(self, content: str) -> str:
+    def write_config(self, content: str) -> str | None:
         if "\x00" in content:
             raise AppError("The configuration contains an invalid NUL character.")
         if len(content.encode("utf-8")) > MAX_BODY_BYTES:
             raise AppError("The configuration is too large.")
 
         target = self.primary.config_path
+        if content == target.read_text(encoding="utf-8", errors="replace"):
+            return None
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup = target.with_name(f"{target.name}.pi-hardware-studio-{stamp}.bak")
         shutil.copy2(target, backup)
@@ -156,7 +159,7 @@ class BootManager:
         os.replace(temporary, target)
         return backup.name
 
-    def write_cmdline(self, content: str) -> str:
+    def write_cmdline(self, content: str) -> str | None:
         if "\x00" in content:
             raise AppError("The kernel command line contains an invalid NUL character.")
         if "\n" in content or "\r" in content:
@@ -169,6 +172,8 @@ class BootManager:
             raise AppError("The kernel command line is too large.")
 
         target = self.primary.kernel_cmdline_path
+        if normalized == target.read_text(encoding="utf-8", errors="replace").strip():
+            return None
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup = target.with_name(f"{target.name}.pi-hardware-studio-{stamp}.bak")
         shutil.copy2(target, backup)
@@ -218,6 +223,69 @@ class BootManager:
                 cmdline_backup = self.write_cmdline(updated_cmdline)
         save_preferences(payload.get("temperature_unit", "C"))
         return {"backup": backup, "cmdline_backup": cmdline_backup}
+
+    def list_backups(self) -> list[dict[str, Any]]:
+        target = self.primary
+        backups: list[dict[str, Any]] = []
+        for source, path in (
+            ("config.txt", target.config_path),
+            ("cmdline.txt", target.kernel_cmdline_path),
+        ):
+            pattern = f"{path.name}.pi-hardware-studio-*.bak"
+            for backup in path.parent.glob(pattern):
+                if not backup.is_file() or not self._is_backup_name(backup.name, path.name):
+                    continue
+                stat = backup.stat()
+                backups.append(
+                    {
+                        "name": backup.name,
+                        "source": source,
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(
+                            stat.st_mtime, timezone.utc
+                        ).isoformat(),
+                    }
+                )
+        return sorted(backups, key=lambda item: item["modified"], reverse=True)
+
+    def delete_backups(self, names: Any) -> list[str]:
+        if not isinstance(names, list) or not names:
+            raise AppError("Select at least one backup to delete.")
+        if not all(isinstance(name, str) for name in names):
+            raise AppError("Invalid backup selection.")
+
+        target = self.primary
+        allowed_parents = {
+            target.config_path.parent.resolve(),
+            target.kernel_cmdline_path.parent.resolve(),
+        }
+        allowed_sources = {
+            target.config_path.name,
+            target.kernel_cmdline_path.name,
+        }
+        deleted: list[str] = []
+        for name in dict.fromkeys(names):
+            if Path(name).name != name or not any(
+                self._is_backup_name(name, source) for source in allowed_sources
+            ):
+                raise AppError(f"Invalid backup name: {name}")
+            candidates = [
+                parent / name for parent in allowed_parents if (parent / name).is_file()
+            ]
+            if len(candidates) != 1:
+                raise AppError(f"Backup not found: {name}")
+            candidates[0].unlink()
+            deleted.append(name)
+        return deleted
+
+    @staticmethod
+    def _is_backup_name(name: str, source: str) -> bool:
+        return bool(
+            re.fullmatch(
+                rf"{re.escape(source)}\.pi-hardware-studio-{BACKUP_STAMP_PATTERN}\.bak",
+                name,
+            )
+        )
 
     def provision_ssh_key(self, public_key: str) -> dict[str, Any]:
         key = public_key.strip()
@@ -495,6 +563,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._config()
         elif path.endswith("/api/cmdline"):
             self._cmdline()
+        elif path.endswith("/api/backups"):
+            self._backups()
         else:
             self._static(path)
 
@@ -545,6 +615,18 @@ class RequestHandler(BaseHTTPRequestHandler):
         except AppError as error:
             self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
 
+    def do_DELETE(self) -> None:
+        path = urlparse(self.path).path
+        try:
+            if not path.endswith("/api/backups"):
+                self._json({"error": "Not found."}, HTTPStatus.NOT_FOUND)
+                return
+            payload = self._read_json()
+            deleted = BOOT.delete_backups(payload.get("names"))
+            self._json({"ok": True, "deleted": deleted})
+        except AppError as error:
+            self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+
     def log_message(self, message: str, *args: Any) -> None:
         print(f"{self.client_address[0]} - {message % args}", flush=True)
 
@@ -585,6 +667,12 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _cmdline(self) -> None:
         try:
             self._json({"content": BOOT.read_cmdline()})
+        except AppError as error:
+            self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+
+    def _backups(self) -> None:
+        try:
+            self._json({"backups": BOOT.list_backups()})
         except AppError as error:
             self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
 

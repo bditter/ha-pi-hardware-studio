@@ -4,9 +4,17 @@ Open the Web UI, mount the detected boot partition, review the current state,
 and apply only the settings you need.
 
 All boot configuration writes create a timestamped sibling backup of
-the file being changed. Most changes require a full host reboot. Some Home
-Assistant OS and Raspberry Pi firmware combinations can require a second full
-reboot before new device nodes appear.
+the file being changed. A save that makes no change does not create another
+backup. Most changes require a full host reboot. Some Home Assistant OS and
+Raspberry Pi firmware combinations can require a second full reboot before new
+device nodes appear.
+
+## Backups
+
+Open **Manage backups** in the Boot configuration card to review and delete
+selected backups after confirming the system boots and the hardware works.
+Only timestamped `config.txt` and `cmdline.txt` backups created by Pi Hardware
+Studio are shown or eligible for deletion. Deletion is permanent.
 
 ## Kernel command line
 
